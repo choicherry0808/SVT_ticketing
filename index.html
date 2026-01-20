@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>for CARAT 티켓팅 연습소</title>
+    <style>
+        :root { --rose-quartz: #F7CAC9; --serenity: #92A8D1; --inter-blue: #0046FF; }
+        body { background: linear-gradient(135deg, var(--rose-quartz), var(--serenity)); color: #333; text-align: center; font-family: 'Pretendard', sans-serif; margin: 0; padding: 20px; }
+        #phone-screen { width: 380px; height: 750px; background: white; margin: 0 auto; border-radius: 40px; border: 12px solid #333; position: relative; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        .page { width: 100%; height: 100%; display: none; padding: 20px; box-sizing: border-box; position: relative; }
+        
+        #timer-display { font-size: 38px; font-weight: bold; color: #fff; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); height: 50px; line-height: 50px; }
+        #stat-box { background: rgba(0,0,0,0.6); color: #00ffcc; padding: 5px 15px; border-radius: 20px; font-family: monospace; font-size: 14px; margin-bottom: 10px; display: inline-block; min-width: 200px; }
+
+        .btn-reserve { width: 100%; padding: 20px; background: #ccc; color: white; border: none; border-radius: 5px; font-size: 20px; font-weight: bold; cursor: default; margin-top: 50px; }
+        .btn-reserve.active { background: var(--inter-blue) !important; cursor: pointer; }
+
+        #captcha-overlay { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; flex-direction: column; }
+        .captcha-box { background: white; padding: 20px; border-radius: 10px; width: 85%; }
+        #captcha-img { font-size: 35px; font-weight: bold; background: #eee; padding: 15px; margin-bottom: 10px; letter-spacing: 8px; font-style: italic; color: #444; }
+
+        #map-container { width: 100%; height: 480px; background: white; border: 1px solid #ddd; position: relative; overflow: hidden; }
+        .grid { position: absolute; width: 10px; height: 10px; border: 0.5px solid #f2f2f2; box-sizing: border-box; }
+        
+        .podo { position: absolute; width: 11px; height: 11px; background: #7C68EE; border-radius: 1px; cursor: pointer; z-index: 10; transition: transform 0.1s; }
+        .podo.selected { transform: scale(1.4); outline: 2px solid #000; z-index: 20; background: #7C68EE !important; }
+        
+        .btn-footer { width: 100%; height: 60px; border: none; font-size: 18px; font-weight: bold; cursor: pointer; }
+        #next-btn { background: #ff4081; color: white; }
+        #refresh-map { background: #333; color: #fff; height: 40px; font-size: 13px; }
+
+        #footer-credit { margin-top: 15px; font-size: 12px; color: #fff; opacity: 0.8; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+    <div id="stat-box">캐럿들 안녕! 20:00:00 정각 클릭!</div>
+    <div id="timer-display">19:59:55.000</div>
+
+    <div id="phone-screen">
+        <div id="page-main" class="page" style="display:block">
+            <h3 style="margin-top:40px; color: var(--serenity);">SEVENTEEN WORLD TOUR</h3>
+            <p style="color:#666; font-size: 13px;">[캐럿 전용] 티켓팅 성공 기원 연습실</p>
+            <button id="reserve-btn" class="btn-reserve" disabled onclick="clickReserve()">예매하기</button>
+            <div style="margin-top: 30px;"><img src="https://img.icons8.com/color/96/diamond--v1.png" width="40" alt="diamond"></div>
+        </div>
+
+        <div id="page-queue" class="page">
+            <h2 style="margin-top:100px;">접속 인원이 많아 대기 중...</h2>
+            <p>조금만 기다려주세요</p>
+            <p>대기번호: <span id="q-num" style="color:var(--inter-blue); font-weight:bold;">0</span></p>
+            <div style="width:100%; height:8px; background:#eee; border-radius:4px; overflow:hidden;"><div id="queue-progress" style="width:0%; height:100%; background:var(--inter-blue);"></div></div>
+        </div>
+
+        <div id="captcha-overlay">
+            <div class="captcha-box">
+                <p style="font-size:12px; margin-bottom:10px;">보안문자 입력!</p>
+                <div id="captcha-img">LOADING</div>
+                <input type="text" id="captcha-input" maxlength="6" autofocus style="width:100%; height:45px; text-align:center; text-transform:uppercase; font-size:24px;">
+                <button onclick="checkCaptcha()" style="width:100%; margin-top:15px; padding:12px; background:var(--inter-blue); color:white; border:none; font-weight:bold;">입력완료</button>
+            </div>
+        </div>
+
+        <div id="page-map" class="page" style="padding:0">
+            <button id="refresh-map" class="btn-footer" onclick="refreshPodoManual()">새로고침</button>
+            <div id="map-container"></div>
+            <button id="next-btn" class="btn-footer" onclick="goNext()">다음단계</button>
+        </div>
+    </div>
+
+    <div id="footer-credit">
+        © 2026 Made by. @ratatouille_17🍒 | For SEVENTEEN & CARAT
+    </div>
+
+    <script>
+        let virtualStartTime, timerInterval, lastDelay;
+        let targetCode = "";
+        let attemptCount = 0;
+
+        function init() {
+            virtualStartTime = Date.now() + 5000;
+            attemptCount = 0;
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            document.getElementById('page-main').style.display = 'block';
+            document.getElementById('reserve-btn').classList.remove('active');
+            document.getElementById('reserve-btn').disabled = true;
+            document.getElementById('timer-display').style.color = "#fff";
+            document.getElementById('captcha-overlay').style.display = 'none';
+            document.getElementById('captcha-input').value = "";
+            
+            if(!window.enterBound) {
+                document.getElementById('captcha-input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') checkCaptcha();
+                });
+                window.enterBound = true;
+            }
+            if(timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateClock, 10);
+        }
+
+        function updateClock() {
+            const now = Date.now();
+            const diff = now - virtualStartTime;
+            if (diff < 0) {
+                const remaining = Math.abs(diff);
+                const currentSec = 55 + (4 - Math.floor(remaining / 1000));
+                document.getElementById('timer-display').innerText = `19:59:${currentSec.toString().padStart(2, '0')}.${(remaining % 1000).toString().padStart(3,'0')}`;
+            } else {
+                document.getElementById('timer-display').innerText = `20:00:${Math.floor(diff / 1000).toString().padStart(2, '0')}.${(diff % 1000).toString().padStart(3,'0')}`;
+                document.getElementById('timer-display').style.color = "#ff4081";
+                const btn = document.getElementById('reserve-btn');
+                if(btn.disabled) { btn.classList.add('active'); btn.disabled = false; }
+            }
+        }
+
+        function clickReserve() {
+            lastDelay = Date.now() - virtualStartTime;
+            document.getElementById('stat-box').innerText = `내 반응속도: ${lastDelay}ms`;
+            const myQ = Math.max(1, Math.floor(Math.pow(lastDelay, 1.4) * 1.5));
+            document.getElementById('q-num').innerText = myQ;
+            document.getElementById('page-main').style.display = 'none';
+            document.getElementById('page-queue').style.display = 'block';
+            let p = 0;
+            const pi = setInterval(() => {
+                p += 20; document.getElementById('queue-progress').style.width = p + "%";
+                if(p >= 100) { clearInterval(pi); showCaptcha(); }
+            }, 70);
+        }
+
+        function showCaptcha() {
+            document.getElementById('captcha-overlay').style.display = 'flex';
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            targetCode = "";
+            for(let i=0; i<6; i++) targetCode += chars.charAt(Math.floor(Math.random()*chars.length));
+            document.getElementById('captcha-img').innerText = targetCode;
+            document.getElementById('captcha-input').value = ""; document.getElementById('captcha-input').focus();
+        }
+
+        function checkCaptcha() {
+            if(document.getElementById('captcha-input').value.toUpperCase() === targetCode) {
+                const score = (Date.now() - virtualStartTime) / 1000;
+                document.getElementById('captcha-overlay').style.display = 'none';
+                document.getElementById('page-queue').style.display = 'none';
+                document.getElementById('page-map').style.display = 'block';
+                generateMap(score);
+            } else { alert("다시 입력하세요"); showCaptcha(); }
+        }
+
+        function generateMap(score) {
+            const cont = document.getElementById('map-container');
+            cont.innerHTML = "";
+            for(let i=0; i<800; i++) {
+                const grid = document.createElement('div'); grid.className = 'grid';
+                grid.style.left = (i%25)*14+10+'px'; grid.style.top = Math.floor(i/25)*14+10+'px';
+                cont.appendChild(grid);
+            }
+            let count = 0;
+            if (score < 8.0) count = Math.floor(Math.random()*30 + 50); 
+            else if (score < 10.0) count = Math.floor(Math.random()*20 + 20);
+            else if (score < 13.0) count = Math.floor(Math.random()*10 + 5); 
+            else count = 0;
+            for(let i=0; i<count; i++) addSinglePodo();
+        }
+
+        function addSinglePodo() {
+            const cont = document.getElementById('map-container');
+            const p = document.createElement('div'); p.className = 'podo';
+            const idx = Math.floor(Math.random()*800);
+            p.style.left = (idx%25)*14+10+'px'; p.style.top = Math.floor(idx/25)*14+10+'px';
+            p.onclick = () => {
+                document.querySelectorAll('.podo').forEach(i=>i.classList.remove('selected'));
+                p.classList.add('selected');
+            };
+            cont.appendChild(p);
+        }
+
+        function shrinkPodo() {
+            const podos = document.querySelectorAll('.podo');
+            if(podos.length > 2) {
+                const removeCount = Math.floor(podos.length * 0.5); 
+                for(let i=0; i<removeCount; i++) {
+                    const currentPodos = document.querySelectorAll('.podo');
+                    const target = currentPodos[Math.floor(Math.random() * currentPodos.length)];
+                    if(target && !target.classList.contains('selected')) target.remove();
+                }
+            } else { podos.forEach(p => p.remove()); }
+        }
+
+        function refreshPodoManual() {
+            const podos = document.querySelectorAll('.podo');
+            if(podos.length === 0) {
+                if(Math.random() < 0.2) {
+                    const count = Math.floor(Math.random() * 2) + 1;
+                    for(let i=0; i<count; i++) addSinglePodo();
+                }
+            } else { shrinkPodo(); }
+        }
+
+        function goNext() {
+            const sel = document.querySelector('.podo.selected');
+            const podos = document.querySelectorAll('.podo');
+            if(podos.length === 0) { alert("매진되었습니다! 다시 연습해요!"); init(); return; }
+            if(!sel) return alert("좌석을 선택해 주세요");
+            
+            attemptCount++;
+            const btn = document.getElementById('next-btn');
+            btn.innerText = "처리 중...";
+            setTimeout(() => {
+                let prob = attemptCount === 1 ? 0.05 : (podos.length > 30 ? 0.25 : 0.1);
+                if(Math.random() < prob) {
+                    alert("🎊 예매 성공! 🎊\n세븐틴 보러 같이가요");
+                    init();
+                } else {
+                    alert("🚨 [이미 선택된 좌석입니다]");
+                    sel.remove(); shrinkPodo();
+                    btn.innerText = "다음단계";
+                }
+            }, 400);
+        }
+        init();
+    </script>
+</body>
+</html>
