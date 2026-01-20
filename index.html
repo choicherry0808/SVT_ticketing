@@ -69,7 +69,7 @@
     </div>
 
     <div id="footer-credit">
-        © 2026 Made by. 공주 💎 | For SEVENTEEN & CARAT
+        © 2026 Made by. @ratatouille_17🍒 | For SEVENTEEN & CARAT
     </div>
 
     <script>
@@ -109,7 +109,10 @@
                 document.getElementById('timer-display').innerText = `20:00:${Math.floor(diff / 1000).toString().padStart(2, '0')}.${(diff % 1000).toString().padStart(3,'0')}`;
                 document.getElementById('timer-display').style.color = "#ff4081";
                 const btn = document.getElementById('reserve-btn');
-                if(btn.disabled) { btn.classList.add('active'); btn.disabled = false; }
+                if(btn && btn.disabled) { 
+                    btn.classList.add('active'); 
+                    btn.disabled = false; 
+                }
             }
         }
 
@@ -177,7 +180,7 @@
         function shrinkPodo() {
             const podos = document.querySelectorAll('.podo');
             if(podos.length > 2) {
-                const removeCount = Math.floor(podos.length * 0.35); // 소멸 속도 살짝 완화
+                const removeCount = Math.floor(podos.length * 0.35); 
                 for(let i=0; i<removeCount; i++) {
                     const currentPodos = document.querySelectorAll('.podo');
                     const target = currentPodos[Math.floor(Math.random() * currentPodos.length)];
@@ -189,5 +192,35 @@
         function refreshPodoManual() {
             const podos = document.querySelectorAll('.podo');
             if(podos.length === 0) {
-                if(Math.random() < 0.25) { // 취표 확률 살짝 상향
+                if(Math.random() < 0.25) {
                     const count = Math.floor(Math.random() * 2) + 1;
+                    for(let i=0; i<count; i++) addSinglePodo();
+                }
+            } else { shrinkPodo(); }
+        }
+
+        function goNext() {
+            const sel = document.querySelector('.podo.selected');
+            const podos = document.querySelectorAll('.podo');
+            if(podos.length === 0) { alert("매진되었습니다! 다시 연습하세요!"); init(); return; }
+            if(!sel) return alert("좌석을 선택해 주세요");
+            
+            attemptCount++;
+            const btn = document.getElementById('next-btn');
+            btn.innerText = "처리 중...";
+            setTimeout(() => {
+                let prob = attemptCount === 1 ? 0.15 : (podos.length > 30 ? 0.35 : 0.2);
+                if(Math.random() < prob) {
+                    alert("🎊 예매 성공! 🎊\n세븐틴 보러 같이가요");
+                    init();
+                } else {
+                    alert("🚨 [이미 선택된 좌석입니다]");
+                    sel.remove(); shrinkPodo();
+                    btn.innerText = "다음단계";
+                }
+            }, 400);
+        }
+        init();
+    </script>
+</body>
+</html>
